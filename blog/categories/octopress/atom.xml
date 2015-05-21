@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Octopress | VKBEST]]></title>
   <link href="http://vkiseki.github.io/blog/categories/octopress/atom.xml" rel="self"/>
   <link href="http://vkiseki.github.io/"/>
-  <updated>2015-05-21T17:52:22+08:00</updated>
+  <updated>2015-05-21T18:50:11+08:00</updated>
   <id>http://vkiseki.github.io/</id>
   <author>
     <name><![CDATA[vkiseki]]></name>
@@ -34,7 +34,7 @@
 <li><p>安装Ruby<br/>
 <a href="http://rubyinstaller.org/">http://rubyinstaller.org/</a></p></li>
 <li><p>安装DevKit<br/>
-<a href="https://github.com/oneclick/rubyinstaller/wiki/Development-Kit">https://github.com/oneclick/rubyinstaller/wiki/Development-Kit</a><br/>
+<a href="http://rubyinstaller.org/downloads/">http://rubyinstaller.org/downloads/</a>
 <em>（注意：DevKit的版本需要对应Ruby的版本！）</em><br/>
 下载后解压后执行以下命令完成安装：
 <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>

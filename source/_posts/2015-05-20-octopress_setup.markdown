@@ -23,7 +23,7 @@ git clone git://github.com/imathis/octopress.git octopress
 http://rubyinstaller.org/
 
 * 安装DevKit  
-https://github.com/oneclick/rubyinstaller/wiki/Development-Kit  
+http://rubyinstaller.org/downloads/
 *（注意：DevKit的版本需要对应Ruby的版本！）*  
 下载后解压后执行以下命令完成安装：
 {% codeblock %}

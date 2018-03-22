@@ -1,0 +1,545 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[VKBEST]]></title>
+  <link href="http://vkiseki.github.io/atom.xml" rel="self"/>
+  <link href="http://vkiseki.github.io/"/>
+  <updated>2018-03-22T16:25:59+08:00</updated>
+  <id>http://vkiseki.github.io/</id>
+  <author>
+    <name><![CDATA[vkiseki]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Using MediaCodec and MediaMuxer]]></title>
+    <link href="http://vkiseki.github.io/blog/2015/09/08/using_mediacodec_and_mediamuxer/"/>
+    <updated>2015-09-08T12:38:20+08:00</updated>
+    <id>http://vkiseki.github.io/blog/2015/09/08/using_mediacodec_and_mediamuxer</id>
+    <content type="html"><![CDATA[<p>For API 18+, <code>MediaCodec</code> and <code>MediaMuxer</code> can be used for re-encoding videos efficiently.<br/>
+This article will explain how to complete such tasks with the help of <code>ExtractDecodeEditEncodeMuxTest.java</code> from android cts.</p>
+
+<!--more-->
+
+
+<p>You can find the base codes from <a href="https://android.googlesource.com/platform/cts/+/kitkat-release/tests/tests/media/src/android/media/cts?autodive=0/">here</a>.<br/>
+<br/></p>
+
+<h5>Summary of <strong>ExtractDecodeEditEncodeMuxTest</strong>:</h5>
+
+<ol>
+<li><code>extractDecodeEditEncodeMux()</code> initializes the extractors, decoders, encoders and muxer.<br/>
+You can config the output format here.</li>
+<li><code>doExtractDecodeEditEncodeMux()</code> performs the actual work. Data flows like:<br/>
+InputFile -> Extractor -> Decoder -> OutputSurface -> (eglSwapBuffers) -> InputSurface -> Encoder -> Muxer -> OutputFile<br/>
+<br/></li>
+</ol>
+
+
+<h5>Advantages:</h5>
+
+<ol>
+<li>Using <code>MediaCodec</code> allows developers to access low-level media codecs for better performance.</li>
+<li>Using OpenGL <code>Surface</code> to copy data from decoder to encoder is much faster than using <code>ByteBuffer</code>.</li>
+<li>With <code>Surface-to-surface</code>, there is no need to consider the compatibility of YUV format on various devices.<br/>
+(See the differences of three data feeding approaches: <a href="http://bigflake.com/mediacodec/#EncodeDecodeTest">Section EncodeDecodeTest</a>)<br/>
+<br/></li>
+</ol>
+
+
+<h5>Modifications:</h5>
+
+<ul>
+<li><strong>Fix the presentation time issue</strong><br/>
+Sometimes the original codes will throw an error indicating that the last presentationTimeUs of encoder is smaller than current presentationTimeUs.<br/>
+We can add an extra determination to avoid it:</li>
+</ul>
+
+
+<figure class='code'><figcaption><span>ExtractDecodeEditEncodeMuxTest.java </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// add these line before sending data to muxer.</span>
+</span><span class='line'><span class="c1">// make sure presentation time of buffer info is larger than last presentation time</span>
+</span><span class='line'><span class="k">if</span> <span class="o">(</span><span class="n">mLastAudioPresentationTime</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">mLastAudioPresentationTime</span> <span class="o">=</span> <span class="n">audioEncoderOutputBufferInfo</span><span class="o">.</span><span class="na">presentationTimeUs</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+</span><span class='line'>  <span class="k">if</span> <span class="o">(</span><span class="n">mLastAudioPresentationTime</span> <span class="o">&gt;</span> <span class="n">audioEncoderOutputBufferInfo</span><span class="o">.</span><span class="na">presentationTimeUs</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>      <span class="n">audioEncoderOutputBufferInfo</span><span class="o">.</span><span class="na">presentationTimeUs</span> <span class="o">=</span> <span class="n">mLastAudioPresentationTime</span> <span class="o">+</span> <span class="mi">1</span><span class="o">;</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>  <span class="n">mLastAudioPresentationTime</span> <span class="o">=</span> <span class="n">audioEncoderOutputBufferInfo</span><span class="o">.</span><span class="na">presentationTimeUs</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// send data to muxer</span>
+</span><span class='line'><span class="k">if</span> <span class="o">(</span><span class="n">audioEncoderOutputBufferInfo</span><span class="o">.</span><span class="na">size</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">muxer</span><span class="o">.</span><span class="na">writeSampleData</span><span class="o">(</span>
+</span><span class='line'>      <span class="n">outputAudioTrack</span><span class="o">,</span> <span class="n">encoderOutputBuffer</span><span class="o">,</span> <span class="n">audioEncoderOutputBufferInfo</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><br/></p>
+
+<ul>
+<li><strong>Fix the format issue</strong><br/>
+If incorrect output format was set, strange thing might happen when playing videos.<br/>
+It seems that converting the auido channel from one to two results in playback problems,<br/>
+thus we need to set the output format with same base attributes as input format.</li>
+</ul>
+
+
+<figure class='code'><figcaption><span>ExtractDecodeEditEncodeMuxTest.java </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">MediaFormat</span> <span class="n">outputAudioFormat</span> <span class="o">=</span> <span class="n">MediaFormat</span><span class="o">.</span><span class="na">createAudioFormat</span><span class="o">(</span>
+</span><span class='line'>  <span class="n">OUTPUT_AUDIO_MIME_TYPE</span><span class="o">,</span>
+</span><span class='line'>  <span class="n">inputFormat</span><span class="o">.</span><span class="na">getInteger</span><span class="o">(</span><span class="n">MediaFormat</span><span class="o">.</span><span class="na">KEY_SAMPLE_RATE</span><span class="o">),</span>
+</span><span class='line'>  <span class="n">inputFormat</span><span class="o">.</span><span class="na">getInteger</span><span class="o">(</span><span class="n">MediaFormat</span><span class="o">.</span><span class="na">KEY_CHANNEL_COUNT</span><span class="o">)</span>
+</span><span class='line'><span class="o">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><br/></p>
+
+<ul>
+<li><strong>Track the encoding progress</strong><br/>
+The encoding of audio is very faster, maybe we can simply ignore it when re-encoding small videos.<br/>
+You should save the duration of video file when initializing (Line 2),<br/>
+And then track current position of video encoder&rsquo;s output (Line 7)</li>
+</ul>
+
+
+<figure class='code'><figcaption><span>ExtractDecodeEditEncodeMuxTest.java </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// save the duration of video</span>
+</span><span class='line'><span class="n">mDuration</span> <span class="o">=</span> <span class="n">inputFormat</span><span class="o">.</span><span class="na">getLong</span><span class="o">(</span><span class="n">MediaFormat</span><span class="o">.</span><span class="na">KEY_DURATION</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">...</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// notify progress changed</span>
+</span><span class='line'><span class="n">mCurrentPosition</span> <span class="o">=</span> <span class="n">mLastVideoPresentationTime</span><span class="o">;</span>
+</span><span class='line'><span class="c1">// send data to muxer</span>
+</span><span class='line'><span class="k">if</span> <span class="o">(</span><span class="n">videoEncoderOutputBufferInfo</span><span class="o">.</span><span class="na">size</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">muxer</span><span class="o">.</span><span class="na">writeSampleData</span><span class="o">(</span>
+</span><span class='line'>      <span class="n">outputVideoTrack</span><span class="o">,</span> <span class="n">encoderOutputBuffer</span><span class="o">,</span> <span class="n">videoEncoderOutputBufferInfo</span><span class="o">);</span>
+</span><span class='line'><span class="o">});</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><br/></p>
+
+<ul>
+<li><strong>Process frame color</strong><br/>
+You can process the frame color with <code>FRAGMENT_SHADER</code>.<br/>
+The preset shader swaps green and blue channels.<br/>
+Below is the default shader that make no changes to frame color. (Quoted from <code>TextureRender</code>)</li>
+</ul>
+
+
+<figure class='code'><figcaption><span>ExtractDecodeEditEncodeMuxTest.java </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">FRAGMENT_SHADER</span> <span class="o">=</span>
+</span><span class='line'>  <span class="s">&quot;#extension GL_OES_EGL_image_external : require\n&quot;</span> <span class="o">+</span>
+</span><span class='line'>      <span class="s">&quot;precision mediump float;\n&quot;</span> <span class="o">+</span>
+</span><span class='line'>      <span class="s">&quot;varying vec2 vTextureCoord;\n&quot;</span> <span class="o">+</span>
+</span><span class='line'>      <span class="s">&quot;uniform samplerExternalOES sTexture;\n&quot;</span> <span class="o">+</span>
+</span><span class='line'>      <span class="s">&quot;void main() {\n&quot;</span> <span class="o">+</span>
+</span><span class='line'>      <span class="s">&quot;  gl_FragColor = texture2D(sTexture, vTextureCoord);\n&quot;</span> <span class="o">+</span>
+</span><span class='line'>      <span class="s">&quot;}\n&quot;</span><span class="o">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><br/></p>
+
+<ul>
+<li><strong>Transform frames</strong><br/>
+Sadly there is no interface for transforming frames, so we need to implement this manually.<br/>
+Using a transform matrix, we can easily scale, rotate or flip the video.</li>
+</ul>
+
+
+<figure class='code'><figcaption><span>TextureRender.java </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">drawFrame</span><span class="o">(</span><span class="n">SurfaceTexture</span> <span class="n">st</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="o">...</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="c1">// calculate MVPMatrix</span>
+</span><span class='line'>  <span class="n">Matrix</span><span class="o">.</span><span class="na">setIdentityM</span><span class="o">(</span><span class="n">MMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'>  <span class="n">Matrix</span><span class="o">.</span><span class="na">setIdentityM</span><span class="o">(</span><span class="n">VMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'>  <span class="n">Matrix</span><span class="o">.</span><span class="na">multiplyMM</span><span class="o">(</span><span class="n">mMVMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">VMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">MMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'>  <span class="n">Matrix</span><span class="o">.</span><span class="na">multiplyMM</span><span class="o">(</span><span class="n">mMVPMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">mPMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">mMVMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'>  <span class="n">GLES20</span><span class="o">.</span><span class="na">glUniformMatrix4fv</span><span class="o">(</span><span class="n">muMVPMatrixHandle</span><span class="o">,</span> <span class="mi">1</span><span class="o">,</span> <span class="kc">false</span><span class="o">,</span> <span class="n">mMVPMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="o">...</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">changeProjectionMatrix</span><span class="o">(</span><span class="kt">float</span><span class="o">[]</span> <span class="n">matrix</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">mPMatrix</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<figure class='code'><figcaption><span>OutputSurface.java </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">changeProjectionMatrix</span><span class="o">(</span><span class="kt">float</span><span class="o">[]</span> <span class="n">matrix</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">mTextureRender</span><span class="o">.</span><span class="na">changeProjectionMatrix</span><span class="o">(</span><span class="n">matrix</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<figure class='code'><figcaption><span>ExtractDecodeEditEncodeMuxTest.java </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">private</span> <span class="kt">void</span> <span class="nf">extractDecodeEditEncodeMux</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
+</span><span class='line'>  <span class="o">...</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="c1">// Create a MediaCodec for the decoder, based on the extractor&#39;s format.</span>
+</span><span class='line'>  <span class="n">outputSurface</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">OutputSurface</span><span class="o">();</span>
+</span><span class='line'>  <span class="n">outputSurface</span><span class="o">.</span><span class="na">changeFragmentShader</span><span class="o">(</span><span class="n">FRAGMENT_SHADER</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="c1">// scale, rotate or flip the matrix</span>
+</span><span class='line'>  <span class="kt">float</span><span class="o">[]</span> <span class="n">matrix</span> <span class="o">=</span> <span class="k">new</span> <span class="kt">float</span><span class="o">[</span><span class="mi">16</span><span class="o">];</span>
+</span><span class='line'>  <span class="n">Matrix</span><span class="o">.</span><span class="na">setIdentityM</span><span class="o">(</span><span class="n">matrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'>  <span class="n">outputSurface</span><span class="o">.</span><span class="na">changeProjectionMatrix</span><span class="o">(</span><span class="n">matrix</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">videoDecoder</span> <span class="o">=</span> <span class="n">createVideoDecoder</span><span class="o">(</span><span class="n">inputFormat</span><span class="o">,</span> <span class="n">outputSurface</span><span class="o">.</span><span class="na">getSurface</span><span class="o">());</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="o">...</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><br/></p>
+
+<ul>
+<li><strong>Change frame rate</strong><br/>
+Although we can set the frame rate of the output format, it actually does not change the frame rate.<br/>
+We need to drop frames manually when decoding videos, there are two approaches:</li>
+<li>Drop frames by frame index.<br/>
+Calculate frame step, then drop frames whose index can be divided with no remainder.<br/>
+Sadly again, <code>MediaExtrator</code> is not able to provide you with the frame rate of a video file. Maybe you should use other tools to achieve this.</li>
+<li>Drop frames by frame presentation time.<br/>
+Divide one second to n pieces, then simply drop frames by comparing with <code>videoDecoderOutputBufferInfo.presentationTimeUs</code>.<br/>
+<br/>
+Drop frames when frame rate of source video is known:</li>
+</ul>
+
+
+<figure class='code'><figcaption><span>ExtractDecodeEditEncodeMuxTest.java </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">private</span> <span class="kt">void</span> <span class="nf">extractDecodeEditEncodeMux</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
+</span><span class='line'>  <span class="o">...</span>
+</span><span class='line'>  <span class="k">if</span> <span class="o">(</span><span class="n">mSourceFrameRate</span> <span class="o">&gt;</span> <span class="n">OUTPUT_VIDEO_FRAME_RATE</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>      <span class="n">mFrameStep</span> <span class="o">=</span> <span class="o">(</span><span class="kt">float</span><span class="o">)</span> <span class="n">mSourceFrameRate</span> <span class="o">/</span> <span class="n">OUTPUT_VIDEO_FRAME_RATE</span><span class="o">;</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>  <span class="o">...</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">private</span> <span class="kt">void</span> <span class="nf">doExtractDecodeEditEncodeMux</span><span class="o">(...)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="o">...</span>
+</span><span class='line'>  <span class="k">if</span> <span class="o">(</span><span class="n">render</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>      <span class="kt">boolean</span> <span class="n">dropFrame</span> <span class="o">=</span> <span class="n">mFrameStep</span> <span class="o">!=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="o">(</span><span class="n">videoDecodedFrameCount</span> <span class="o">%</span> <span class="n">mFrameStep</span><span class="o">)</span> <span class="o">==</span> <span class="mi">0</span><span class="o">;</span>
+</span><span class='line'>      <span class="k">if</span> <span class="o">(</span><span class="n">dropFrame</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>          <span class="k">if</span> <span class="o">(</span><span class="n">VERBOSE</span><span class="o">)</span> <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="s">&quot;drop frame: &quot;</span> <span class="o">+</span> <span class="n">videoDecodedFrameCount</span><span class="o">);</span>
+</span><span class='line'>      <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+</span><span class='line'>          <span class="k">if</span> <span class="o">(</span><span class="n">VERBOSE</span><span class="o">)</span> <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="s">&quot;output surface: await new image&quot;</span><span class="o">);</span>
+</span><span class='line'>          <span class="n">outputSurface</span><span class="o">.</span><span class="na">awaitNewImage</span><span class="o">();</span>
+</span><span class='line'>          <span class="c1">// Edit the frame and send it to the encoder.</span>
+</span><span class='line'>          <span class="k">if</span> <span class="o">(</span><span class="n">VERBOSE</span><span class="o">)</span> <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="s">&quot;output surface: draw image&quot;</span><span class="o">);</span>
+</span><span class='line'>          <span class="n">outputSurface</span><span class="o">.</span><span class="na">drawImage</span><span class="o">();</span>
+</span><span class='line'>          <span class="n">inputSurface</span><span class="o">.</span><span class="na">setPresentationTime</span><span class="o">(</span>
+</span><span class='line'>              <span class="n">videoDecoderOutputBufferInfo</span><span class="o">.</span><span class="na">presentationTimeUs</span> <span class="o">*</span> <span class="mi">1000</span><span class="o">);</span>
+</span><span class='line'>          <span class="k">if</span> <span class="o">(</span><span class="n">VERBOSE</span><span class="o">)</span> <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="s">&quot;input surface: swap buffers&quot;</span><span class="o">);</span>
+</span><span class='line'>          <span class="n">inputSurface</span><span class="o">.</span><span class="na">swapBuffers</span><span class="o">();</span>
+</span><span class='line'>          <span class="k">if</span> <span class="o">(</span><span class="n">VERBOSE</span><span class="o">)</span> <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="s">&quot;video encoder: notified of new frame&quot;</span><span class="o">);</span>
+</span><span class='line'>      <span class="o">}</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>  <span class="o">...</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Octopress Setup]]></title>
+    <link href="http://vkiseki.github.io/blog/2015/05/21/octopress_setup/"/>
+    <updated>2015-05-21T14:48:19+08:00</updated>
+    <id>http://vkiseki.github.io/blog/2015/05/21/octopress_setup</id>
+    <content type="html"><![CDATA[<p>在Windows系统下使用<code>Octopress</code>及<code>Github Pages</code>建立个人博客。</p>
+
+<!--more-->
+
+
+<h2>安装Octopress</h2>
+
+<ul>
+<li><p>下载Octopress<br/>
+  可以使用<code>Git</code>下载，也可以直接到<a href="https://github.com/imathis/octopress">Github页面</a>下载zip包。<br/>
+  下载完成后，保存在当前路径的octopress文件夹下。
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>git clone git://github.com/imathis/octopress.git octopress</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>安装Ruby<br/>
+  <a href="http://rubyinstaller.org/">http://rubyinstaller.org/</a></p></li>
+<li><p>安装DevKit</p>
+
+<ul>
+<li>RubyInstaller 版本&lt;2.4.0<br/>
+  <a href="http://rubyinstaller.org/downloads/">http://rubyinstaller.org/downloads/</a> <em>（注意：DevKit的版本需要对应Ruby的版本！）</em><br/>
+  下载后解压后执行以下命令完成安装：
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>cd DevKit
+</span><span class='line'>ruby dk.rb init
+</span><span class='line'>ruby dk.rb install &ndash;force</span></code></pre></td></tr></table></div></figure></li>
+<li>RubyInstaller 版本2.4.0<br/>
+  安装RubyInstaller的过程中会有三个选项，此时按Enter即可。<br/>
+  或者通过执行<code>rake install 1 2 3</code>来完成。</li>
+</ul>
+</li>
+<li><p>为Ruby换源<br/>
+  由于ruby资源访问较慢，建议国内用户换成<a href="https://gems.ruby-china.org/">RubyChina源</a>。<br/>
+  第二步有时会因网络原因失败，多试几次就行了。<br/>
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>gem sources &ndash;remove <a href="https://rubygems.org/">https://rubygems.org/</a>
+</span><span class='line'>gem sources -a <a href="https://gems.ruby-china.org/">https://gems.ruby-china.org/</a>
+</span><span class='line'>gem sources -l</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>修改octopress\Gemfile文件第一行为<br/>
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>source &ldquo;<a href="http://ruby.taobao.org/">http://ruby.taobao.org/</a>&rdquo;</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>安装Octopress的相关依赖
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>cd octopress
+</span><span class='line'>gem install bundler
+</span><span class='line'>bundler install</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>此时如果有报错提示没有安装rdiscount<br/>
+  安装rdiscount，请自行将"2.1.8"替换成控制台提示的版本。<br/>
+  之后重试bundler install。
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>gem install rdiscount -v &lsquo;2.1.8&rsquo;
+</span><span class='line'>bundler install</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>完成Octopress的安装
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>rake install</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>此时如果有报错提示<code>you have already activated rake x.x.0.0, but your gemfile requires rake x.x.0.0</code>
+  则需要在rake命令前添加前缀：<br/>
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>bundler exec rake install</span></code></pre></td></tr></table></div></figure></p></li>
+</ul>
+
+
+<h2>配置Octopress</h2>
+
+<ul>
+<li><p>建立代码仓库<br/>
+  在Github中建立名称为<code>YOURNAME.github.io</code>的代码仓库</p></li>
+<li><p>配置站点信息<br/>
+  打开octopress\_config.yml文件，<br/>
+  修改url为<code>YOURNAME.github.io</code>，同时填写title、author等信息。</p></li>
+<li><p>部署Github Pages<br/>
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>rake setup_github_pages</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>生成网站<br/>
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>rake generate</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>Liquid Exception<br/>
+  若出现<code>Liquid Exception: undefined method 'gsub' for nil:NilClass in atom.xml</code>，<br/>
+  则需要打开octopress\plugins\octopress_filters.rb，将第3行修改为第4行所示的代码。
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">def</span> <span class="nf">cdata_escape</span><span class="p">(</span><span class="n">input</span><span class="p">)</span>
+</span><span class='line'>  <span class="c1">#input.gsub(/&lt;![CDATA[/, &#39;&amp;lt;![CDATA[&#39;).gsub(/]]&gt;/, &#39;]]&amp;gt;&#39;)</span>
+</span><span class='line'>  <span class="n">input</span><span class="o">.</span><span class="n">to_s</span><span class="o">.</span><span class="n">gsub</span><span class="p">(</span><span class="sr">/&lt;![CDATA[/</span><span class="p">,</span> <span class="s1">&#39;&amp;lt;![CDATA[&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">gsub</span><span class="p">(</span><span class="sr">/]]&gt;/</span><span class="p">,</span> <span class="s1">&#39;]]&amp;gt;&#39;</span><span class="p">)</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>发布网站文件<br/>
+  将网站文件上传到master分支下：
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>rake deploy</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>上传网站源码<br/>
+  将网站源码上传到source分支下：
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>git add .
+</span><span class='line'>git commit -m &lsquo;First commit&rsquo;
+</span><span class='line'>git push origin source</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>创建新文章<br/>
+  会在octopress\source\_posts下新建一个markdown文件，<br/>
+  用文本格式打开后可以对文章进行编辑。
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>rake new_post[&ldquo;title&rdquo;]</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>预览网站<br/>
+  执行以下指令后，在浏览器中访问<code>localhost:4000</code>即可。<br/>
+  它会监听html、css和markdown文件的变动，所以每次修改完只需要刷新浏览器就行了。<br/>
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>rake preview</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>发布修改后的网站<br/>
+  修改后需要再次执行deploy命令发布到Github，才能通过github.io访问到最新的网页。
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>rake generate
+</span><span class='line'>git add .
+</span><span class='line'>git commit -am &ldquo;comments&rdquo;
+</span><span class='line'>git push origin source
+</span><span class='line'>rake deploy</span></code></pre></td></tr></table></div></figure></p></li>
+</ul>
+
+
+<h2>配置已有的Octopress</h2>
+
+<p>在新机器上安装Github上已有的Octopress网站</p>
+
+<ul>
+<li><p>获取网站源码，存放在octopress目录下<br/>
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>git clone -b source git@github.com:YOURNAME/YOURNAME.github.io.git octopress</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>获取网站文件，存放在octopress/_deploy目录下<br/>
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>cd octopress
+</span><span class='line'>git clone git@github.com:YOURNAME/YOURNAME.github.com.git _deploy</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>安装部署Github Pages<br/>
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>gem install bundler
+</span><span class='line'>bundle install
+</span><span class='line'>rake setup_github_pages</span></code></pre></td></tr></table></div></figure></p></li>
+</ul>
+
+
+<h2>其它配置</h2>
+
+<ul>
+<li><p>主页只显示文章摘要<br/>
+  在文章中适当的地方插入<code>&lt;!--more--&gt;</code>，
+  同时修改octopress\_config.yml：
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>excerpt_link: &ldquo;read more&rdquo;</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>支持disqus评论<br/>
+  需要先在<a href="http://www.disqus.com">Disqus.com</a>注册帐号，
+  并进入<code>Settings -&gt; Add Disqus To Site</code>。<br/>
+  新建一个站点<code>myblog.disqus.com</code>，其中<strong>myblog</strong>就是你的shortname。<br/>
+  然后修改octopress\_config.yml：
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>disqus_short_name: YOUR_NAME
+</span><span class='line'>disqus_show_comment_count: true</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>Markdown中文编码<br/>
+  若提示中文编码存在问题，将文件转换成<code>UTF-8无BOM</code>格式即可。<br/>
+  可以使用<code>Notepad++</code>进行处理：<br/>
+  <img src="http://vkiseki.github.io/images/post/post_img_20150521001.jpg"></p></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+</feed>

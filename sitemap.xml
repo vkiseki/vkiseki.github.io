@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url>
+<loc>http://vkiseki.github.io/blog/2015/09/08/using_mediacodec_and_mediamuxer/</loc>
+<lastmod>2015-09-08T12:38:20+08:00</lastmod>
+</url>
+<url>
+<loc>http://vkiseki.github.io/blog/2015/05/21/octopress_setup/</loc>
+<lastmod>2015-05-21T14:48:19+08:00</lastmod>
+</url>
+<url>
+<loc>http://vkiseki.github.io/</loc>
+</url>
+<url>
+<loc>http://vkiseki.github.io/blog/archives/</loc>
+</url>
+<url>
+<loc>http://vkiseki.github.io/blog/categories/octopress/</loc>
+</url>
+<url>
+<loc>http://vkiseki.github.io/blog/categories/github-pages/</loc>
+</url>
+<url>
+<loc>http://vkiseki.github.io/blog/categories/android/</loc>
+</url>
+<url>
+<loc>http://vkiseki.github.io/blog/categories/media/</loc>
+</url>
+</urlset>

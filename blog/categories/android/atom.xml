@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Android | VKBEST]]></title>
+  <link href="http://vkiseki.github.io/blog/categories/android/atom.xml" rel="self"/>
+  <link href="http://vkiseki.github.io/"/>
+  <updated>2018-03-22T16:25:59+08:00</updated>
+  <id>http://vkiseki.github.io/</id>
+  <author>
+    <name><![CDATA[vkiseki]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Using MediaCodec and MediaMuxer]]></title>
+    <link href="http://vkiseki.github.io/blog/2015/09/08/using_mediacodec_and_mediamuxer/"/>
+    <updated>2015-09-08T12:38:20+08:00</updated>
+    <id>http://vkiseki.github.io/blog/2015/09/08/using_mediacodec_and_mediamuxer</id>
+    <content type="html"><![CDATA[<p>For API 18+, <code>MediaCodec</code> and <code>MediaMuxer</code> can be used for re-encoding videos efficiently.<br/>
+This article will explain how to complete such tasks with the help of <code>ExtractDecodeEditEncodeMuxTest.java</code> from android cts.</p>
+
+<!--more-->
+
+
+<p>You can find the base codes from <a href="https://android.googlesource.com/platform/cts/+/kitkat-release/tests/tests/media/src/android/media/cts?autodive=0/">here</a>.<br/>
+<br/></p>
+
+<h5>Summary of <strong>ExtractDecodeEditEncodeMuxTest</strong>:</h5>
+
+<ol>
+<li><code>extractDecodeEditEncodeMux()</code> initializes the extractors, decoders, encoders and muxer.<br/>
+You can config the output format here.</li>
+<li><code>doExtractDecodeEditEncodeMux()</code> performs the actual work. Data flows like:<br/>
+InputFile -> Extractor -> Decoder -> OutputSurface -> (eglSwapBuffers) -> InputSurface -> Encoder -> Muxer -> OutputFile<br/>
+<br/></li>
+</ol>
+
+
+<h5>Advantages:</h5>
+
+<ol>
+<li>Using <code>MediaCodec</code> allows developers to access low-level media codecs for better performance.</li>
+<li>Using OpenGL <code>Surface</code> to copy data from decoder to encoder is much faster than using <code>ByteBuffer</code>.</li>
+<li>With <code>Surface-to-surface</code>, there is no need to consider the compatibility of YUV format on various devices.<br/>
+(See the differences of three data feeding approaches: <a href="http://bigflake.com/mediacodec/#EncodeDecodeTest">Section EncodeDecodeTest</a>)<br/>
+<br/></li>
+</ol>
+
+
+<h5>Modifications:</h5>
+
+<ul>
+<li><strong>Fix the presentation time issue</strong><br/>
+Sometimes the original codes will throw an error indicating that the last presentationTimeUs of encoder is smaller than current presentationTimeUs.<br/>
+We can add an extra determination to avoid it:<br/>
+<figure class='code'><figcaption><span>ExtractDecodeEditEncodeMuxTest.java </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// add these line before sending data to muxer.</span>
+</span><span class='line'><span class="c1">// make sure presentation time of buffer info is larger than last presentation time</span>
+</span><span class='line'><span class="k">if</span> <span class="o">(</span><span class="n">mLastAudioPresentationTime</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">mLastAudioPresentationTime</span> <span class="o">=</span> <span class="n">audioEncoderOutputBufferInfo</span><span class="o">.</span><span class="na">presentationTimeUs</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+</span><span class='line'>  <span class="k">if</span> <span class="o">(</span><span class="n">mLastAudioPresentationTime</span> <span class="o">&gt;</span> <span class="n">audioEncoderOutputBufferInfo</span><span class="o">.</span><span class="na">presentationTimeUs</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>      <span class="n">audioEncoderOutputBufferInfo</span><span class="o">.</span><span class="na">presentationTimeUs</span> <span class="o">=</span> <span class="n">mLastAudioPresentationTime</span> <span class="o">+</span> <span class="mi">1</span><span class="o">;</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>  <span class="n">mLastAudioPresentationTime</span> <span class="o">=</span> <span class="n">audioEncoderOutputBufferInfo</span><span class="o">.</span><span class="na">presentationTimeUs</span><span class="o">;</span>
+</span><span class='line'><span class="o">}&lt;/</span><span class="n">li</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">ul</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="c1">// send data to muxer</span>
+</span><span class='line'><span class="k">if</span> <span class="o">(</span><span class="n">audioEncoderOutputBufferInfo</span><span class="o">.</span><span class="na">size</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">muxer</span><span class="o">.</span><span class="na">writeSampleData</span><span class="o">(</span>
+</span><span class='line'>        <span class="n">outputAudioTrack</span><span class="o">,</span> <span class="n">encoderOutputBuffer</span><span class="o">,</span> <span class="n">audioEncoderOutputBufferInfo</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+<br/></p>
+
+<ul>
+<li><p><strong>Fix the format issue</strong><br/>
+If incorrect output format was set, strange thing might happen when playing videos.<br/>
+It seems that converting the auido channel from one to two results in playback problems,<br/>
+thus we need to set the output format with same base attributes as input format.
+<figure class='code'><figcaption><span>ExtractDecodeEditEncodeMuxTest.java </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">MediaFormat</span> <span class="n">outputAudioFormat</span> <span class="o">=</span> <span class="n">MediaFormat</span><span class="o">.</span><span class="na">createAudioFormat</span><span class="o">(</span>
+</span><span class='line'>  <span class="n">OUTPUT_AUDIO_MIME_TYPE</span><span class="o">,</span>
+</span><span class='line'>  <span class="n">inputFormat</span><span class="o">.</span><span class="na">getInteger</span><span class="o">(</span><span class="n">MediaFormat</span><span class="o">.</span><span class="na">KEY_SAMPLE_RATE</span><span class="o">),</span>
+</span><span class='line'>  <span class="n">inputFormat</span><span class="o">.</span><span class="na">getInteger</span><span class="o">(</span><span class="n">MediaFormat</span><span class="o">.</span><span class="na">KEY_CHANNEL_COUNT</span><span class="o">)</span>
+</span><span class='line'><span class="o">);</span>
+</span></code></pre></td></tr></table></div></figure>
+<br/></p></li>
+<li><p><strong>Track the encoding progress</strong><br/>
+The encoding of audio is very faster, maybe we can simply ignore it when re-encoding small videos.<br/>
+You should save the duration of video file when initializing (Line 2),<br/>
+And then track current position of video encoder&rsquo;s output (Line 7)<br/>
+<figure class='code'><figcaption><span>ExtractDecodeEditEncodeMuxTest.java </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// save the duration of video</span>
+</span><span class='line'><span class="n">mDuration</span> <span class="o">=</span> <span class="n">inputFormat</span><span class="o">.</span><span class="na">getLong</span><span class="o">(</span><span class="n">MediaFormat</span><span class="o">.</span><span class="na">KEY_DURATION</span><span class="o">);&lt;/</span><span class="n">p</span><span class="o">&gt;&lt;/</span><span class="n">li</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">ul</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;&amp;</span><span class="n">hellip</span><span class="o">;&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="c1">// notify progress changed</span>
+</span><span class='line'><span class="n">mCurrentPosition</span> <span class="o">=</span> <span class="n">mLastVideoPresentationTime</span><span class="o">;</span>
+</span><span class='line'><span class="c1">// send data to muxer</span>
+</span><span class='line'><span class="k">if</span> <span class="o">(</span><span class="n">videoEncoderOutputBufferInfo</span><span class="o">.</span><span class="na">size</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">muxer</span><span class="o">.</span><span class="na">writeSampleData</span><span class="o">(</span>
+</span><span class='line'>        <span class="n">outputVideoTrack</span><span class="o">,</span> <span class="n">encoderOutputBuffer</span><span class="o">,</span> <span class="n">videoEncoderOutputBufferInfo</span><span class="o">);</span>
+</span><span class='line'><span class="o">});</span>
+</span></code></pre></td></tr></table></div></figure>
+<br/></p>
+
+<ul>
+<li><p><strong>Process frame color</strong><br/>
+You can process the frame color with <code>FRAGMENT_SHADER</code>.<br/>
+The preset shader swaps green and blue channels.<br/>
+Below is the default shader that make no changes to frame color. (Quoted from <code>TextureRender</code>)
+<figure class='code'><figcaption><span>ExtractDecodeEditEncodeMuxTest.java </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">FRAGMENT_SHADER</span> <span class="o">=</span>
+</span><span class='line'>  <span class="o">&amp;</span><span class="n">ldquo</span><span class="o">;</span><span class="err">#</span><span class="n">extension</span> <span class="n">GL_OES_EGL_image_external</span> <span class="o">:</span> <span class="n">require</span><span class="err">\</span><span class="n">n</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="o">;</span> <span class="o">+</span>
+</span><span class='line'>      <span class="o">&amp;</span><span class="n">ldquo</span><span class="o">;</span><span class="n">precision</span> <span class="n">mediump</span> <span class="kt">float</span><span class="o">;</span><span class="err">\</span><span class="n">n</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="o">;</span> <span class="o">+</span>
+</span><span class='line'>      <span class="o">&amp;</span><span class="n">ldquo</span><span class="o">;</span><span class="n">varying</span> <span class="n">vec2</span> <span class="n">vTextureCoord</span><span class="o">;</span><span class="err">\</span><span class="n">n</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="o">;</span> <span class="o">+</span>
+</span><span class='line'>      <span class="o">&amp;</span><span class="n">ldquo</span><span class="o">;</span><span class="n">uniform</span> <span class="n">samplerExternalOES</span> <span class="n">sTexture</span><span class="o">;</span><span class="err">\</span><span class="n">n</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="o">;</span> <span class="o">+</span>
+</span><span class='line'>      <span class="o">&amp;</span><span class="n">ldquo</span><span class="o">;</span><span class="kt">void</span> <span class="nf">main</span><span class="o">()</span> <span class="o">{</span><span class="err">\</span><span class="n">n</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="o">;</span> <span class="o">+</span>
+</span><span class='line'>      <span class="o">&amp;</span><span class="n">ldquo</span><span class="o">;</span>  <span class="n">gl_FragColor</span> <span class="o">=</span> <span class="n">texture2D</span><span class="o">(</span><span class="n">sTexture</span><span class="o">,</span> <span class="n">vTextureCoord</span><span class="o">);</span><span class="err">\</span><span class="n">n</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="o">;</span> <span class="o">+</span>
+</span><span class='line'>      <span class="o">&amp;</span><span class="n">ldquo</span><span class="o">;}</span><span class="err">\</span><span class="n">n</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="o">;;</span>
+</span></code></pre></td></tr></table></div></figure>
+<br/></p></li>
+<li><p><strong>Transform frames</strong><br/>
+Sadly there is no interface for transforming frames, so we need to implement this manually.<br/>
+Using a transform matrix, we can easily scale, rotate or flip the video.
+<figure class='code'><figcaption><span>TextureRender.java </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">drawFrame</span><span class="o">(</span><span class="n">SurfaceTexture</span> <span class="n">st</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="o">&amp;</span><span class="n">hellip</span><span class="o">;&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="c1">// calculate MVPMatrix</span>
+</span><span class='line'>  <span class="n">Matrix</span><span class="o">.</span><span class="na">setIdentityM</span><span class="o">(</span><span class="n">MMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'>  <span class="n">Matrix</span><span class="o">.</span><span class="na">setIdentityM</span><span class="o">(</span><span class="n">VMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'>  <span class="n">Matrix</span><span class="o">.</span><span class="na">multiplyMM</span><span class="o">(</span><span class="n">mMVMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">VMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">MMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'>  <span class="n">Matrix</span><span class="o">.</span><span class="na">multiplyMM</span><span class="o">(</span><span class="n">mMVPMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">mPMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">mMVMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'>  <span class="n">GLES20</span><span class="o">.</span><span class="na">glUniformMatrix4fv</span><span class="o">(</span><span class="n">muMVPMatrixHandle</span><span class="o">,</span> <span class="mi">1</span><span class="o">,</span> <span class="kc">false</span><span class="o">,</span> <span class="n">mMVPMatrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">);&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="o">&amp;</span><span class="n">hellip</span><span class="o">;</span>
+</span><span class='line'><span class="o">}&lt;/</span><span class="n">p</span><span class="o">&gt;&lt;/</span><span class="n">li</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">ul</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="kd">public</span> <span class="kt">void</span> <span class="nf">changeProjectionMatrix</span><span class="o">(</span><span class="kt">float</span><span class="o">[]</span> <span class="n">matrix</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">mPMatrix</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+<figure class='code'><figcaption><span>OutputSurface.java </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">changeProjectionMatrix</span><span class="o">(</span><span class="kt">float</span><span class="o">[]</span> <span class="n">matrix</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">mTextureRender</span><span class="o">.</span><span class="na">changeProjectionMatrix</span><span class="o">(</span><span class="n">matrix</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+<figure class='code'><figcaption><span>ExtractDecodeEditEncodeMuxTest.java </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">private</span> <span class="kt">void</span> <span class="nf">extractDecodeEditEncodeMux</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
+</span><span class='line'>    <span class="o">&amp;</span><span class="n">hellip</span><span class="o">;&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="c1">// Create a MediaCodec for the decoder, based on the extractor&#39;s format.</span>
+</span><span class='line'><span class="n">outputSurface</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">OutputSurface</span><span class="o">();</span>
+</span><span class='line'><span class="n">outputSurface</span><span class="o">.</span><span class="na">changeFragmentShader</span><span class="o">(</span><span class="n">FRAGMENT_SHADER</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// scale, rotate or flip the matrix</span>
+</span><span class='line'><span class="kt">float</span><span class="o">[]</span> <span class="n">matrix</span> <span class="o">=</span> <span class="k">new</span> <span class="kt">float</span><span class="o">[</span><span class="mi">16</span><span class="o">];</span>
+</span><span class='line'><span class="n">Matrix</span><span class="o">.</span><span class="na">setIdentityM</span><span class="o">(</span><span class="n">matrix</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+</span><span class='line'><span class="n">outputSurface</span><span class="o">.</span><span class="na">changeProjectionMatrix</span><span class="o">(</span><span class="n">matrix</span><span class="o">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">videoDecoder</span> <span class="o">=</span> <span class="n">createVideoDecoder</span><span class="o">(</span><span class="n">inputFormat</span><span class="o">,</span> <span class="n">outputSurface</span><span class="o">.</span><span class="na">getSurface</span><span class="o">());</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">...</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;}</span>
+</span></code></pre></td></tr></table></div></figure>
+<br/></p>
+
+<ul>
+<li><strong>Change frame rate</strong><br/>
+Although we can set the frame rate of the output format, it actually does not change the frame rate.<br/>
+We need to drop frames manually when decoding videos, there are two approaches:</li>
+<li>Drop frames by frame index.<br/>
+Calculate frame step, then drop frames whose index can be divided with no remainder.<br/>
+Sadly again, <code>MediaExtrator</code> is not able to provide you with the frame rate of a video file. Maybe you should use other tools to achieve this.</li>
+<li>Drop frames by frame presentation time.<br/>
+Divide one second to n pieces, then simply drop frames by comparing with <code>videoDecoderOutputBufferInfo.presentationTimeUs</code>.<br/>
+<br/>
+Drop frames when frame rate of source video is known:
+<figure class='code'><figcaption><span>ExtractDecodeEditEncodeMuxTest.java </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">private</span> <span class="kt">void</span> <span class="nf">extractDecodeEditEncodeMux</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
+</span><span class='line'> <span class="o">&amp;</span><span class="n">hellip</span><span class="o">;</span>
+</span><span class='line'> <span class="k">if</span> <span class="o">(</span><span class="n">mSourceFrameRate</span> <span class="o">&gt;</span> <span class="n">OUTPUT_VIDEO_FRAME_RATE</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>     <span class="n">mFrameStep</span> <span class="o">=</span> <span class="o">(</span><span class="kt">float</span><span class="o">)</span> <span class="n">mSourceFrameRate</span> <span class="o">/</span> <span class="n">OUTPUT_VIDEO_FRAME_RATE</span><span class="o">;</span>
+</span><span class='line'> <span class="o">}</span>
+</span><span class='line'> <span class="o">&amp;</span><span class="n">hellip</span><span class="o">;</span>
+</span><span class='line'><span class="o">}&lt;/</span><span class="n">li</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">ul</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="kd">private</span> <span class="kt">void</span> <span class="nf">doExtractDecodeEditEncodeMux</span><span class="o">(&amp;</span><span class="n">hellip</span><span class="o">;)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="o">&amp;</span><span class="n">hellip</span><span class="o">;</span>
+</span><span class='line'>    <span class="k">if</span> <span class="o">(</span><span class="n">render</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="kt">boolean</span> <span class="n">dropFrame</span> <span class="o">=</span> <span class="n">mFrameStep</span> <span class="o">!=</span> <span class="mi">0</span> <span class="o">&amp;</span><span class="n">amp</span><span class="o">;&amp;</span><span class="n">amp</span><span class="o">;</span> <span class="o">(</span><span class="n">videoDecodedFrameCount</span> <span class="o">%</span> <span class="n">mFrameStep</span><span class="o">)</span> <span class="o">==</span> <span class="mi">0</span><span class="o">;</span>
+</span><span class='line'>        <span class="k">if</span> <span class="o">(</span><span class="n">dropFrame</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="k">if</span> <span class="o">(</span><span class="n">VERBOSE</span><span class="o">)</span> <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="o">;</span><span class="n">drop</span> <span class="nl">frame:</span> <span class="o">&amp;</span><span class="n">rdquo</span><span class="o">;</span> <span class="o">+</span> <span class="n">videoDecodedFrameCount</span><span class="o">);</span>
+</span><span class='line'>        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+</span><span class='line'>            <span class="k">if</span> <span class="o">(</span><span class="n">VERBOSE</span><span class="o">)</span> <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="o">;</span><span class="n">output</span> <span class="nl">surface:</span> <span class="n">await</span> <span class="k">new</span> <span class="n">image</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="o">;);</span>
+</span><span class='line'>            <span class="n">outputSurface</span><span class="o">.</span><span class="na">awaitNewImage</span><span class="o">();</span>
+</span><span class='line'>            <span class="c1">// Edit the frame and send it to the encoder.</span>
+</span><span class='line'>            <span class="k">if</span> <span class="o">(</span><span class="n">VERBOSE</span><span class="o">)</span> <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="o">;</span><span class="n">output</span> <span class="nl">surface:</span> <span class="n">draw</span> <span class="n">image</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="o">;);</span>
+</span><span class='line'>            <span class="n">outputSurface</span><span class="o">.</span><span class="na">drawImage</span><span class="o">();</span>
+</span><span class='line'>            <span class="n">inputSurface</span><span class="o">.</span><span class="na">setPresentationTime</span><span class="o">(</span>
+</span><span class='line'>                <span class="n">videoDecoderOutputBufferInfo</span><span class="o">.</span><span class="na">presentationTimeUs</span> <span class="o">*</span> <span class="mi">1000</span><span class="o">);</span>
+</span><span class='line'>            <span class="k">if</span> <span class="o">(</span><span class="n">VERBOSE</span><span class="o">)</span> <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="o">;</span><span class="n">input</span> <span class="nl">surface:</span> <span class="n">swap</span> <span class="n">buffers</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="o">;);</span>
+</span><span class='line'>            <span class="n">inputSurface</span><span class="o">.</span><span class="na">swapBuffers</span><span class="o">();</span>
+</span><span class='line'>            <span class="k">if</span> <span class="o">(</span><span class="n">VERBOSE</span><span class="o">)</span> <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="o">;</span><span class="n">video</span> <span class="nl">encoder:</span> <span class="n">notified</span> <span class="n">of</span> <span class="k">new</span> <span class="n">frame</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="o">;);</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>    <span class="o">&amp;</span><span class="n">hellip</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure></p>
+]]></content>
+  </entry>
+  
+</feed>

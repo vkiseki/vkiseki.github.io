@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Github Pages | VKBEST]]></title>
   <link href="http://vkiseki.github.io/blog/categories/github-pages/atom.xml" rel="self"/>
   <link href="http://vkiseki.github.io/"/>
-  <updated>2018-03-22T17:20:22+08:00</updated>
+  <updated>2018-03-22T17:44:49+08:00</updated>
   <id>http://vkiseki.github.io/</id>
   <author>
     <name><![CDATA[vkiseki]]></name>
@@ -173,8 +173,27 @@
 </pre></td><td class='code'><pre><code class=''><span class='line'>gem install bundler
 </span><span class='line'>bundle install
 </span><span class='line'>rake setup_github_pages</span></code></pre></td></tr></table></div></figure></p></li>
-</ul>
-
+<li><p>如果发布时提示<code>[rejected] master -&gt; master (non-fast-forward)</code>，则需要再同步一下_deploy目录
+  <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>cd _deploy
+</span><span class='line'>git pull origin master &ndash;allow-unrelated-histories
+</span><span class='line'>git checkout &ndash;theirs .
+</span><span class='line'>git add .&lt;/p>&lt;/li>
+</span><span class='line'>&lt;/ul>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>&lt;p>cd ..
+</span><span class='line'>rake generate
+</span><span class='line'>rake deploy</span></code></pre></td></tr></table></div></figure></p>
 
 <h2>其它配置</h2>
 
@@ -199,6 +218,9 @@
   <img src="/images/post/post_img_20150521001.jpg"></p></li>
 </ul>
 
+
+<p><br>
+Last updated on March 22th, 2018</p>
 ]]></content>
   </entry>
   

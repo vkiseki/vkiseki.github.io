@@ -165,6 +165,18 @@ bundle install
 rake setup_github_pages
 	{% endcodeblock %}
 
+* 如果发布时提示```[rejected] master -> master (non-fast-forward)```，则需要再同步一下\_deploy目录
+	{% codeblock %}
+cd _deploy
+git pull origin master --allow-unrelated-histories
+git checkout --theirs .
+git add .
+
+cd ..
+rake generate
+rake deploy
+	{% endcodeblock %}
+
 其它配置
 -------------------------------
 * 主页只显示文章摘要  
@@ -188,3 +200,6 @@ disqus_show_comment_count: true
 	若提示中文编码存在问题，将文件转换成`UTF-8无BOM`格式即可。  
 	可以使用`Notepad++`进行处理：  
 	{% img /images/post/post_img_20150521001.jpg %}
+
+<br>
+Last updated on March 22th, 2018

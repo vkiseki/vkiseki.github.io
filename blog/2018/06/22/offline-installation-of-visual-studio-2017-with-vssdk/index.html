@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html class="no-js" lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Offline Installation of Visual Studio 2017 With VSSDK - VKBEST</title>
+  <meta name="author" content="vkiseki">
+
+  
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://vkiseki.github.io/blog/2018/06/22/offline-installation-of-visual-studio-2017-with-vssdk/">
+  <link href="/favicon.png" type="image/png" rel="icon">
+  <link href="/atom.xml" rel="alternate" title="VKBEST" type="application/atom+xml">
+
+  <!-- http://opengraphprotocol.org/ -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="http://vkiseki.github.io/blog/2018/06/22/offline-installation-of-visual-studio-2017-with-vssdk/">
+  <meta property="og:title" content="Offline Installation of Visual Studio 2017 With VSSDK - VKBEST">
+  
+
+  <script src="/javascripts/libs/jquery/jquery-2.1.3.min.js"></script>
+
+<link href="/assets/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+
+
+  
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+
+  
+
+</head>
+
+  <body   >
+    <a href="#content" class="sr-only sr-only-focusable">Skip to main content</a>
+    <div id="wrap">
+      <header role="banner">
+        <nav class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" title="toggle navbar" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">VKBEST</a>
+        </div>
+
+        <div class="navbar-collapse collapse">
+            <ul class="nav navbar-nav">
+                <li>
+                    <a rel="index" href="/">Blog</a>
+                </li>
+                <li>
+                    <a href="/blog/archives">Archives</a>
+                </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+                
+                    <li>
+                        <form class="search navbar-form navbar-right" action="https://www.google.com/search" method="GET">
+                            <!-- <input type="hidden" name="sitesearch" value="vkiseki.github.io"> -->
+                            <div class="form-group">
+								<img class="control-label" src="/images/search.png" alt="search">
+                                <input class="form-control" type="text" name="q" placeholder="Search">
+                            </div>
+                        </form>
+                    </li>
+                
+            </ul>
+        </div>
+    </div>
+</nav>
+
+
+      </header>
+      <div id="main" role="main" class="container">
+        <div id="content">
+          <div class="row">
+  <div class="page-content col-md-9" itemscope itemtype="http://schema.org/Blog">
+    <meta itemprop="name" content="VKBEST" />
+    
+    <meta itemprop="url" content="http://vkiseki.github.io" />
+    <article class="hentry" role="article" itemprop="blogPost" itemscope itemtype="http://schema.org/BlogPosting">
+      
+  <header class="page-header">
+    
+    <h2 class="entry-title" itemprop="name headline">
+        Offline Installation of Visual Studio 2017 With VSSDK
+        
+    </h2>
+    
+	
+    
+      <p class="meta text-muted text-uppercase lead">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="glyphicon glyphicon-calendar"></span> <time datetime="2018-06-22T15:17:37+08:00"  data-updated="true" itemprop="datePublished dateCreated">2018-06-22 15:17:37</time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content clearfix" itemprop="articleBody description"><p>Download the installation files of Visual Studio 2017 on a computer connected to the Internet, then you can move those files somewhere and perform a installation.</p>
+
+<!--more-->
+
+
+<p><br></p>
+
+<h4>Steps</h4>
+
+<ol>
+<li><p>Download <code>Visual Studio bootstrapper</code> from <a href="https://docs.microsoft.com/en-us/visualstudio/install/create-a-network-installation-of-visual-studio">Microsoft</a>.</p></li>
+<li><p>For <code>Visual Studio Enterprise</code>, run the command below. If you need English version, just replace <code>zh-CN</code> with <code>en-US</code>.<br>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>D:\vs_Enterprise.exe &ndash;layout D:\VisualStudio2017 &ndash;add Microsoft.VisualStudio.Workload.ManagedDesktop -add Microsoft.VisualStudio.Workload.VisualStudioExtension &ndash;lang zh-CN</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>After downloading, all files are placed at <code>D:\VisualStudio2017</code>, just copy the folder to another computer.</p></li>
+<li><p>Run <code>vs_setup.exe</code> in the installation folder.</p></li>
+<li><p>How to verify:<br>
+Open Visual Studio 2017, on the <strong>File</strong> Menu, click <strong>New</strong> then click <strong>New Project</strong>.<br>
+Choose <strong>Visual C#/Extensibility</strong> in the left pane, and then create a <strong>VSIX Project</strong>.</p></li>
+</ol>
+
+</div>
+
+
+      <footer>
+        <p class="meta text-muted">
+          
+  
+
+<span class="glyphicon glyphicon-user"></span> <span class="byline author vcard" itemprop="author" itemscope itemtype="http://schema.org/Person">Posted by <span class="fn" itemprop="name">vkiseki</span></span>
+
+		  &nbsp;
+          
+
+<span class="glyphicon glyphicon-tags"></span>
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/studio/'>studio,</a>, <a class='category' href='/blog/categories/visual/'>visual</a>, <a class='category' href='/blog/categories/vsix/'>vsix</a>, <a class='category' href='/blog/categories/vssdk/'>vssdk,</a>
+  
+</span>
+
+
+        </p>
+        
+          <div class="sharing">
+  
+  
+  
+</div>
+
+        
+        
+          <ul class="meta text-muted pager">
+            
+            <li class="previous"><a href="/blog/2015/09/08/using_mediacodec_and_mediamuxer/" title="Previous Post: Using MediaCodec and MediaMuxer">&laquo; Using MediaCodec and MediaMuxer</a></li>
+            
+            
+          </ul>
+        
+      </footer>
+    </article>
+    
+  </div>
+
+  
+  <aside class="sidebar col-md-3">
+    
+      
+    
+  </aside>
+  
+</div>
+
+        </div>
+      </div>
+    </div>
+    <footer role="contentinfo"><div class="container">
+    <p class="text-muted credits text-center">
+	Copyright &copy; 2018 vkiseki &nbsp;
+	Powered by <a href="http://octopress.org">octopress</a>, customized with <a href="https://github.com/kAworu/octostrap3">octostrap3</a>.
+</p>
+
+</div>
+</footer>
+    
+
+
+
+
+
+
+
+
+<script src="/assets/bootstrap/dist/js/bootstrap.min.js"></script>
+<script src="/javascripts/modernizr.js"></script>
+
+
+  </body>
+</html>

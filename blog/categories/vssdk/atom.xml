@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Vssdk, | VKBEST]]></title>
+  <link href="http://vkiseki.github.io/blog/categories/vssdk/atom.xml" rel="self"/>
+  <link href="http://vkiseki.github.io/"/>
+  <updated>2018-06-22T16:22:05+08:00</updated>
+  <id>http://vkiseki.github.io/</id>
+  <author>
+    <name><![CDATA[vkiseki]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Offline Installation of Visual Studio 2017 With VSSDK]]></title>
+    <link href="http://vkiseki.github.io/blog/2018/06/22/offline-installation-of-visual-studio-2017-with-vssdk/"/>
+    <updated>2018-06-22T15:17:37+08:00</updated>
+    <id>http://vkiseki.github.io/blog/2018/06/22/offline-installation-of-visual-studio-2017-with-vssdk</id>
+    <content type="html"><![CDATA[<p>Download the installation files of Visual Studio 2017 on a computer connected to the Internet, then you can move those files somewhere and perform a installation.</p>
+
+<!--more-->
+
+
+<p><br></p>
+
+<h4>Steps</h4>
+
+<ol>
+<li><p>Download <code>Visual Studio bootstrapper</code> from <a href="https://docs.microsoft.com/en-us/visualstudio/install/create-a-network-installation-of-visual-studio">Microsoft</a>.</p></li>
+<li><p>For <code>Visual Studio Enterprise</code>, run the command below. If you need English version, just replace <code>zh-CN</code> with <code>en-US</code>.<br>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>D:\vs_Enterprise.exe &ndash;layout D:\VisualStudio2017 &ndash;add Microsoft.VisualStudio.Workload.ManagedDesktop -add Microsoft.VisualStudio.Workload.VisualStudioExtension &ndash;lang zh-CN</span></code></pre></td></tr></table></div></figure></p></li>
+<li><p>After downloading, all files are placed at <code>D:\VisualStudio2017</code>, just copy the folder to another computer.</p></li>
+<li><p>Run <code>vs_setup.exe</code> in the installation folder.</p></li>
+<li><p>How to verify:<br>
+Open Visual Studio 2017, on the <strong>File</strong> Menu, click <strong>New</strong> then click <strong>New Project</strong>.<br>
+Choose <strong>Visual C#/Extensibility</strong> in the left pane, and then create a <strong>VSIX Project</strong>.</p></li>
+</ol>
+
+]]></content>
+  </entry>
+  
+</feed>
